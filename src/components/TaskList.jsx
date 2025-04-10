@@ -116,7 +116,11 @@ const TaskList = () => {
                     >
                       <Form.Check
                         type="checkbox"
-                        label={task.title}
+                        label={
+                            <span className={task.completed ? "text-decoration-line-through" : ""}>
+                              {task.title}
+                            </span>
+                          }
                         checked={task.completed}
                         className="flex-grow-1"
                         onChange={() =>
