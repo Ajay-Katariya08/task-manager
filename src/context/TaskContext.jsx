@@ -1,11 +1,10 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
+import React, { createContext, useState, useEffect, useContext, useMemo, useCallback } from "react";
 import axios from "axios";
 import { AuthContext } from "./AuthContext";
 
 export const TaskContext = createContext();
 
 export const TaskProvider = ({ children }) => {
-    
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
@@ -17,21 +16,19 @@ export const TaskProvider = ({ children }) => {
     if (user) fetchTasks();
   }, [user]);
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(
-        "https://jsonplaceholder.typicode.com/todos?_limit=20"
-      );
+      const res = await axios.get("https://jsonplaceholder.typicode.com/todos?_limit=20");
       setTasks(res.data);
     } catch (err) {
-      console.error("fetch task eror", err);
+      console.error("fetch task error", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const addTask = async (task) => {
+  const addTask = useCallback(async (task) => {
     const newTask = {
       ...task,
       id: Date.now().toString(),
@@ -39,51 +36,51 @@ export const TaskProvider = ({ children }) => {
     try {
       await axios.post("https://jsonplaceholder.typicode.com/todos", newTask);
     } catch (err) {
-      console.log("Api post fail", err);
+      console.log("API post fail", err);
     }
     setTasks((prev) => [newTask, ...prev]);
-  };
+  }, []);
 
-  const updateTask = async (task) => {
+  const updateTask = useCallback(async (task) => {
     try {
-      await axios.put(
-        `https://jsonplaceholder.typicode.com/todos/${task.id}`,
-        task
-      );
+      await axios.put(`https://jsonplaceholder.typicode.com/todos/${task.id}`, task);
     } catch (err) {
-      console.log("put fail", err);
+      console.log("PUT fail", err);
     }
-
     setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)));
-  };
+  }, []);
 
-  const deleteTask = async (id) => {
+  const deleteTask = useCallback(async (id) => {
     try {
       await axios.delete(`https://jsonplaceholder.typicode.com/todos/${id}`);
     } catch (err) {
-      console.log("delete fail", err);
+      console.log("DELETE fail", err);
     }
     setTasks((prev) => prev.filter((t) => t.id !== id));
-  };
+  }, []);
 
-  const reorderTasks = (startIndex, endIndex) => {
-    const result = Array.from(tasks);
-    const [removed] = result.splice(startIndex, 1);
-    result.splice(endIndex, 0, removed);
-    setTasks(result);
-  };
+  const reorderTasks = useCallback((startIndex, endIndex) => {
+    setTasks((prev) => {
+      const result = Array.from(prev);
+      const [removed] = result.splice(startIndex, 1);
+      result.splice(endIndex, 0, removed);
+      return result;
+    });
+  }, []);
 
-  const filteredTasks =
-    filter === "completed"
-      ? tasks.filter((t) => t.completed)
-      : filter === "pending"
-      ? tasks.filter((t) => !t.completed)
-      : tasks;
+  const filteredTasks = useMemo(() => {
+    if (filter === "completed") return tasks.filter((t) => t.completed);
+    if (filter === "pending") return tasks.filter((t) => !t.completed);
+    return tasks;
+  }, [tasks, filter]);
 
-  const paginatedTasks = filteredTasks.slice(
-    (currentPage - 1) * tasksPerPage,
-    currentPage * tasksPerPage
-  );
+  const paginatedTasks = useMemo(() => {
+    const start = (currentPage - 1) * tasksPerPage;
+    const end = currentPage * tasksPerPage;
+    return filteredTasks.slice(start, end);
+  }, [filteredTasks, currentPage]);
+
+  const totalPages = useMemo(() => Math.ceil(filteredTasks.length / tasksPerPage), [filteredTasks]);
 
   return (
     <TaskContext.Provider
@@ -98,7 +95,7 @@ export const TaskProvider = ({ children }) => {
         filter,
         currentPage,
         setCurrentPage,
-        totalPages: Math.ceil(filteredTasks.length / tasksPerPage),
+        totalPages,
         reorderTasks,
       }}
     >
